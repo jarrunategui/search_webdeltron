@@ -4,6 +4,7 @@ import Header from './Header';
 import Sidebar from './Sidebar';
 import ProductGrid from './ProductGrid';
 import { searchProducts, getProductDetails } from '../services/api';
+import { PROJECT_DEBUGGER } from '../utils/debugger';
 
 const SearchPage = () => {
   const [searchParams] = useSearchParams();
@@ -28,7 +29,9 @@ const SearchPage = () => {
   // Handle search functionality
   const handleSearch = (term) => {
     if (term.trim()) {
-      navigate(`/search?q=${encodeURIComponent(term.trim())}`);
+      const url = `/search?q=${encodeURIComponent(term.trim())}`;
+      PROJECT_DEBUGGER.searchFlow.navigationStart(url);
+      navigate(url);
     }
   };
 
@@ -47,18 +50,22 @@ const SearchPage = () => {
     
     try {
       // Step 1: Get SKUs from search API
-      console.log('Searching for:', term);
+      PROJECT_DEBUGGER.searchFlow.apiCallStart(term, 'searchProducts');
       const skus = await searchProducts(term);
+      PROJECT_DEBUGGER.searchFlow.apiCallEnd(skus, 'searchProducts');
       
       if (skus && skus.length > 0) {
         // Step 2: Get product details for each SKU
-        console.log('Found SKUs:', skus);
+        PROJECT_DEBUGGER.searchFlow.apiCallStart(skus, 'getProductDetails');
         const productDetails = await getProductDetails(skus);
+        PROJECT_DEBUGGER.searchFlow.apiCallEnd(productDetails, 'getProductDetails');
         
         setProducts(productDetails);
+        PROJECT_DEBUGGER.searchFlow.productsLoaded(productDetails);
         updateFiltersFromProducts(productDetails);
       } else {
         setProducts([]);
+        PROJECT_DEBUGGER.searchFlow.productsLoaded([]);
         setFilters({
           categories: [],
           brands: [],
@@ -72,6 +79,13 @@ const SearchPage = () => {
       setProducts([]);
     } finally {
       setLoading(false);
+      // Debug: Renderizado completo
+      setTimeout(() => {
+        PROJECT_DEBUGGER.searchFlow.renderComplete(
+          document.querySelectorAll('.product-card').length,
+          products.length
+        );
+      }, 100);
     }
   };
 

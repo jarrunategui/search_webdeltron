@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { searchProducts as searchProductsService } from './searchService.js';
 
 // Mock data for development - replace with real API endpoints
 const MOCK_SKUS = [
@@ -94,6 +95,10 @@ const MOCK_PRODUCTS = {
 
 // API Configuration - Replace these with your actual API endpoints
 const API_CONFIG = {
+  SEARCH_API_HOST: process.env.REACT_APP_SEARCH_API_HOST || '192.168.66.194',
+  SEARCH_API_PORT: process.env.REACT_APP_SEARCH_API_PORT || '5040',
+  IA_API_HOST: process.env.REACT_APP_IA_API_HOST || '192.168.66.194',
+  IA_API_PORT: process.env.REACT_APP_IA_API_PORT || '5030',
   SEARCH_API_URL: process.env.REACT_APP_SEARCH_API_URL || 'http://192.168.66.194:5040/apish',
   PRODUCTS_API_URL: process.env.REACT_APP_PRODUCTS_API_URL || 'https://api.example.com/products',
   API_KEY: process.env.REACT_APP_API_KEY || ''
@@ -109,61 +114,65 @@ const apiClient = axios.create({
 });
 
 /**
+ * Generate JSON payload for API requests (migrated from PHP)
+ * @param {string} pregunta - Search question
+ * @param {string} buscador - Search flag ("Y" or "N")
+ * @param {Object} filtros - Filter object
+ * @returns {string} JSON string
+ */
+export const generateJson = (pregunta, buscador = "Y", filtros = {}) => {
+  const defaultFiltros = {
+    linea_de_producto: "",
+    marca_de_producto: "",
+    almacen_codigo: "",
+    tipo_producto: "",
+    ...filtros
+  };
+
+  return JSON.stringify({
+    pregunta,
+    buscador,
+    filtros: defaultFiltros
+  });
+};
+
+/**
+ * Call to API POST (migrated from PHP callToApiPhp4Post)
+ * @param {string} host - API host
+ * @param {number} port - API port
+ * @param {string} path - API path
+ * @param {string} jsonData - JSON data to send
+ * @returns {Promise<Object>} API response
+ */
+export const callToApiPost = async (host, port, path, jsonData) => {
+  try {
+    const url = `http://${host}:${port}${path}`;
+    console.log(`🌐 Calling API: ${url}`);
+    console.log(`📤 Sending data: ${jsonData}`);
+
+    const response = await axios.post(url, JSON.parse(jsonData), {
+      timeout: 10000,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    console.log(`📥 API Response: ${JSON.stringify(response.data)}`);
+    return response.data;
+  } catch (error) {
+    console.error(`❌ API Error: ${error.message}`);
+    throw error;
+  }
+};
+
+/**
  * Search for products and return array of SKUs
  * @param {string} searchTerm - The search term
  * @returns {Promise<string[]>} Array of product SKUs
  */
 export const searchProducts = async (searchTerm) => {
-  try {
-    // TEMPORAL: Comentado para probar API real
-    // For development, use mock data only if using example URL
-    // if (process.env.NODE_ENV === 'development' && API_CONFIG.SEARCH_API_URL.includes('api.example.com')) {
-    //   console.log('Using mock search data for term:', searchTerm);
-    //   
-    //   // Simulate API delay
-    //   await new Promise(resolve => setTimeout(resolve, 500));
-    //   
-    //   // Filter mock SKUs based on search term
-    //   const filteredSkus = MOCK_SKUS.filter(sku => 
-    //     sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    //     searchTerm.toLowerCase().includes('monitor') ||
-    //     searchTerm.toLowerCase().includes('teros') ||
-    //     searchTerm.toLowerCase().includes('lg') ||
-    //     searchTerm.toLowerCase().includes('samsung')
-    //   );
-    //   
-    //   return filteredSkus.length > 0 ? filteredSkus : MOCK_SKUS.slice(0, 6);
-    // }
-
-    // Real API call - usando formato específico para la API de búsqueda
-    const response = await apiClient.post(API_CONFIG.SEARCH_API_URL, {
-      pregunta: searchTerm,
-      buscador: "Y",
-      filtros: {}
-    });
-
-    // Extraer SKUs de la respuesta según la estructura específica de la API
-    if (response.data && response.data.rpta && response.data.rpta.dataIA && response.data.rpta.dataIA.ids && response.data.rpta.dataIA.ids[0]) {
-      const skus = response.data.rpta.dataIA.ids[0]; // Array de SKUs
-      
-      // TEMPORAL: Imprimir SKUs para probar conectividad
-      console.log('🔍 SKUs obtenidos de la API:', skus);
-      console.log('📊 Total de SKUs encontrados:', skus.length);
-      console.log('🎯 Búsqueda realizada para:', searchTerm);
-      
-      return skus;
-    }
-    
-    // Fallback en caso de estructura diferente
-    console.log('⚠️ Estructura de respuesta no reconocida:', response.data);
-    return response.data.skus || response.data.productos || response.data || [];
-  } catch (error) {
-    console.error('Error searching products:', error);
-    
-    // Fallback to mock data on error
-    console.log('Falling back to mock data due to API error');
-    return MOCK_SKUS.slice(0, 6);
-  }
+  // Usar el servicio externalizado para búsquedas
+  return await searchProductsService(searchTerm);
 };
 
 /**
@@ -221,7 +230,9 @@ export const getProductDetail = async (sku) => {
 const apiService = {
   searchProducts,
   getProductDetails,
-  getProductDetail
+  getProductDetail,
+  callToApiPost,
+  generateJson
 };
 
 export default apiService;

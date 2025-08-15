@@ -1,13 +1,17 @@
 import React from 'react';
+import { PROJECT_DEBUGGER } from '../utils/debugger';
 
 const Header = ({ searchTerm, onSearch, onSearchTermChange }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
+    PROJECT_DEBUGGER.searchFlow.formSubmit(searchTerm);
     onSearch(searchTerm);
   };
 
   const handleInputChange = (e) => {
-    onSearchTermChange(e.target.value);
+    const value = e.target.value;
+    PROJECT_DEBUGGER.searchFlow.userInput(value);
+    onSearchTermChange(value);
   };
 
   return (
